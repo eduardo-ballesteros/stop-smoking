@@ -1,7 +1,7 @@
 var express = require('express');
 var app = express();
 
-app.listen(3000, function() {
+app.listen(process.env.PORT || 5000, function() {
     console.log('Stop Smoking Bot-Server listening on port 3000...');
 });
 
