@@ -67,7 +67,7 @@ KickTheSmokingHabit.prototype.Finish = function() {
 
     jsonResponse.push({ "messages": this.messages });
 
-    this.res.send(jsonResponse);    
+    this.res.send(jsonResponse[0]);    
 }
 
 KickTheSmokingHabit.prototype.Switchboard = function() {
