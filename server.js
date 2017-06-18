@@ -60,17 +60,20 @@ function KickTheSmokingHabit (req, res) {
 };
 
 KickTheSmokingHabit.prototype.Finish = function() {
-    var jsonResponse = [];
+    var jsonResponse = {};
 
     if(this.attributes.length > 0)
-        jsonResponse.push({ "set_attributes": this.attributes });
+        jsonResponse.set_attributes = this.attributes;
 
-    jsonResponse.push({ "messages": this.messages });
+    if(this.messages.length > 0)
+        jsonResponse.messages = this.messages;
 
-    this.res.send(jsonResponse[0]);    
+    this.res.send(jsonResponse);    
 }
 
 KickTheSmokingHabit.prototype.Switchboard = function() {
+    this.AddText(util.format("URL: %s", this.req.url));
+
     if(this.blockName)
     {
         switch(this.blockName)
