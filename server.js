@@ -4,13 +4,18 @@ var util = require('util');
 var app = express();
 
 app.listen(process.env.PORT || 5000, function() {
-    console.log('Stop Smoking Bot-Server listening on port 3000...');
+    console.log(util.format("Stop Smoking Bot-Server listening on port %s...", process.env.PORT || 5000));
 });
 
 app.get('/', function(req, res) {
     var jsonResponse = [];
     jsonResponse.push({ "text": "Hi. " + (Math.random() * 100 + 1).toFixed(0) + " is a lucky number..." });
     res.send(jsonResponse);
+});
+
+app.get('/sb', function(req, res) {
+    var habit = new KickTheSmokingHabit(req, res);
+    habit.Switchboard();
 });
 
 app.get('/val_qd', function(req, res) {
@@ -33,3 +38,121 @@ app.get('/val_qd', function(req, res) {
     }
     res.send(jsonResponse);
 });
+
+function KickTheSmokingHabit (req, res) {
+    this.req = req;
+    this.res = res;
+    this.blockName = req.query["last visited block name"];
+    this.messages = [];
+    this.attributes = [];
+};
+
+KickTheSmokingHabit.prototype.Finish = function() {
+    var jsonResponse = [];
+
+    if(this.attributes.length > 0)
+        jsonResponse.push({ "set_attributes": this.attributes });
+
+    jsonResponse.push({ "messages": this.messages });
+
+    this.res.send(jsonResponse);    
+}
+
+KickTheSmokingHabit.prototype.Switchboard = function() {
+    if(this.blockName)
+    {
+        switch(this.blockName)
+        {
+            case "Welcome Message":
+
+                break;
+            
+            case "Quit in One Month":
+            case "Quit at End of Month":
+            case "Quit in Two Months":
+            case "Quit on Date":
+                this.DetermineQuitDate();
+                break;
+
+            default:
+                this.AddText(util.format("Sorry, I didn't get this [%s]", this.blockName));
+                break;
+        }
+    }
+    else
+    {
+        this.AddText("No block name specified.");
+        this.AddText("Please call it with the {{last visited block name}} attribute");
+        this.AddText(util.format("URL: %s", this.req.url));
+        this.SetUserAttribute("Quit Date", "NOT SET");
+    }
+
+    this.Finish();
+};
+
+KickTheSmokingHabit.prototype.DetermineQuitDate = function() {
+    var quitDate = Date.today();
+
+    switch(this.blockName)
+    {
+        case "Quit at End of Month":
+            quitDate = quitDate.moveToLastDayOfMonth();
+            break;
+        case "Quit in One Month":
+            quitDate = quitDate.addMonths(1);
+            break;
+        case "Quit in Two Months":
+            quitDate = quitDate.addMonths(2);
+            break;
+        case "Quit on Date":
+            var userQuitDate = this.req.query["Custom Quit Date"];
+
+            if(userQuitDate) {
+                quitDate = Date.parse(userQuitDate);
+                
+                if(quitDate == null)
+                    this.AddText(util.format("I don't understand [%s]", userQuitDate))
+                else
+                {
+                    var daysFromNow = (Date.today() - quitDate)/86400000;
+                    this.AddText(util.format("Your quit date is set to %s", quitDate.toString("MMMM d")));                
+                    this.SetUserAttribute("Quit Date", quitDate.toString("MMMM d, yyyy"));
+                    this.SetUserAttribute("Days to Quit", daysFromNow);
+                }
+            }
+            else
+                this.AddText(util.format("[Custom Quit Date] was not passed from block [%s].", this.blockName));
+
+            break;
+        default:
+            this.AddText(util.format("Block [%s] is unknown in DetermineQuitDate", this.blockName));
+    }
+}
+
+KickTheSmokingHabit.prototype.AddText = function(text) {
+    this.messages.push({ "text": text });
+}
+
+KickTheSmokingHabit.prototype.AddLinkToBlock = function(blockName) {
+    this.messages.push({ "text": text });
+}
+
+KickTheSmokingHabit.prototype.AddRedirectToBlock = function(blockName) {
+    this.messages.push({ "redirect_to_blocks": [ blockName ] });
+}
+
+KickTheSmokingHabit.prototype.SetUserAttribute = function(attributeName, value) {
+    this.attributes.push({ [attributeName]: value });
+}
+
+KickTheSmokingHabit.prototype.AddAttachment = function(attachmentType, url) {
+    var attachment = [];
+
+    attachment.push({
+        "type": attachmentType,
+        "payload": { "url": url }
+    });
+
+    this.messages.push({ "attachment": attachment });
+}
+
