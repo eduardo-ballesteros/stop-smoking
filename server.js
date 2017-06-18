@@ -25,6 +25,21 @@ app.get('/echo2', function(req, res) {
     habit.Finish();
 });
 
+app.get('/attr', function(req, res) {
+    var habit = new KickTheSmokingHabit(req, res);
+    
+    habit.AddText(util.format("URL: %s", req.url));   
+
+    var attributeName = req.query["Attribute to Set"];
+    var attributeValue = req.query["Attribute Value"];
+
+    habit.SetUserAttribute(attributeName, attributeValue);
+
+    habit.AddText(util.format("Attribute [%s] set to [%s].", attributeName, attributeValue));
+
+    habit.Finish();
+});
+
 app.get('/sb', function(req, res) {
     var habit = new KickTheSmokingHabit(req, res);
     habit.Switchboard();
@@ -120,20 +135,15 @@ KickTheSmokingHabit.prototype.DetermineQuitDate = function() {
             quitDate = quitDate.addMonths(2);
             break;
         case "Quit on Date":
+            quitDate = null;
+
             var userQuitDate = this.req.query["Custom Quit Date"];
 
             if(userQuitDate) {
                 quitDate = Date.parse(userQuitDate);
-                
+
                 if(quitDate == null)
                     this.AddText(util.format("I don't understand [%s]", userQuitDate))
-                else
-                {
-                    var daysFromNow = (Date.today() - quitDate)/86400000;
-                    this.AddText(util.format("Your quit date is set to %s", quitDate.toString("MMMM d")));                
-                    this.SetUserAttribute("Quit Date", quitDate.toString("MMMM d, yyyy"));
-                    this.SetUserAttribute("Days to Quit", daysFromNow);
-                }
             }
             else
                 this.AddText(util.format("[Custom Quit Date] was not passed from block [%s].", this.blockName));
@@ -142,6 +152,24 @@ KickTheSmokingHabit.prototype.DetermineQuitDate = function() {
         default:
             this.AddText(util.format("Block [%s] is unknown in DetermineQuitDate", this.blockName));
     }
+                
+    if(quitDate != null)
+    {
+        var daysFromNow = -(Date.today() - quitDate)/86400000;
+
+        if(daysFromNow < 0)
+        {
+            this.AddText("Your quit date appears to be in the past.");
+            this.SetUserAttribute("Quit Date", "");
+            this.SetUserAttribute("Days to Quit", 0);
+        }
+        else
+        {
+            this.AddText(util.format("Your quit date is in %s days and set to %s.", daysFromNow, quitDate.toString("MMMM d")));                
+            this.SetUserAttribute("Quit Date", quitDate.toString("MMMM d, yyyy"));
+            this.SetUserAttribute("Days to Quit", daysFromNow);            
+        }
+    }    
 }
 
 KickTheSmokingHabit.prototype.AddText = function(text) {
