@@ -13,6 +13,18 @@ app.get('/', function(req, res) {
     res.send(jsonResponse);
 });
 
+app.get('/echo', function(req, res) {
+    var jsonResponse = [];
+    jsonResponse.push({ "text": util.format("URL: %s", req.url) });
+    res.send(jsonResponse);
+});
+
+app.get('/echo2', function(req, res) {
+    var habit = new KickTheSmokingHabit(req, res);
+    habit.AddText(util.format("URL: %s", req.url));   
+    habit.Finish();
+});
+
 app.get('/sb', function(req, res) {
     var habit = new KickTheSmokingHabit(req, res);
     habit.Switchboard();
