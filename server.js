@@ -71,13 +71,14 @@ function KickTheSmokingHabit (req, res) {
     this.res = res;
     this.blockName = req.query["last visited block name"];
     this.messages = [];
-    this.attributes = [];
+    this.attributes = {};
+    this.hasAttributes = false;
 };
 
 KickTheSmokingHabit.prototype.Finish = function() {
     var jsonResponse = {};
 
-    if(this.attributes.length > 0)
+    if(this.hasAttributes)
         jsonResponse.set_attributes = this.attributes;
 
     if(this.messages.length > 0)
@@ -185,7 +186,8 @@ KickTheSmokingHabit.prototype.AddRedirectToBlock = function(blockName) {
 }
 
 KickTheSmokingHabit.prototype.SetUserAttribute = function(attributeName, value) {
-    this.attributes.push({ [attributeName]: value });
+    this.attributes[attributeName] = value;
+    this.hasAttributes = true;
 }
 
 KickTheSmokingHabit.prototype.AddAttachment = function(attachmentType, url) {
