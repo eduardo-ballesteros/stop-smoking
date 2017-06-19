@@ -101,6 +101,10 @@ KickTheSmokingHabit.prototype.Switchboard = function() {
                     this.SetUserAttribute("First Visit Date", Date.today());
 
                 break;
+
+            case "Pleasant Activities":
+                this.RecordPleasantActivity();
+                break;
             
             case "Quit in One Month":
             case "Quit at End of Month":
@@ -110,16 +114,7 @@ KickTheSmokingHabit.prototype.Switchboard = function() {
                 break;
 
             case "Record Count":
-                var yesterdaysCount = this.req.query["Cigarette Count"];
-                var cigaretteCounterJson = this.req.query["Counter Array"];
-                var cigaretteCounter = [];
-
-                if(cigaretteCounterJson)
-                    cigaretteCounter = JSON.parse(cigaretteCounterJson);
-                
-                cigaretteCounter.push({"date": Date.today().setTimeToNow(), "count": yesterdaysCount});
-                
-                this.SetUserAttribute("Counter Array", JSON.stringify(cigaretteCounter));
+                this.RecordCigaretteCount();
                 break;
 
             default:
@@ -136,6 +131,58 @@ KickTheSmokingHabit.prototype.Switchboard = function() {
 
     this.Finish();
 };
+
+KickTheSmokingHabit.prototype.RecordPleasantActivity = function() {
+    var pleasantActivity = this.req.query["Pleasant Activity"];
+    var activityListJson = this.req.query["Pleasant Activity Array"];
+    var activityList = [];
+
+    if(activityListJson)
+        activityList = JSON.parse(activityListJson);    
+    
+    activityList.push(pleasantActivity);
+
+    this.SetUserAttribute("Pleasant Activity Array", JSON.stringify(activityList));
+    this.SetUserAttribute("Has Pleasant Activities", "Yes");
+}
+
+KickTheSmokingHabit.prototype.RandomPleasantActivity = function() {
+    var activityListJson = this.req.query["Pleasant Activity Array"];
+    var activityList = [];
+
+    if(activityListJson)
+    {
+        activityList = JSON.parse(activityListJson);    
+
+        if(activityList.length > 0)
+        {
+            var index = activityList.length * Math.random();
+            this.AddText(activityList[index]);
+        }
+        else
+        {
+            this.AddText("You haven't told me about activities that you enjoy. If you tell me some, I'll remind you of one when you are feeling down.");
+        }
+    }
+    else
+    {
+        this.AddText("You haven't told me about activities that you enjoy. If you tell me some, I'll remind you of one when you are feeling down.");
+    }
+}
+
+
+KickTheSmokingHabit.prototype.RecordCigaretteCount = function() {
+    var yesterdaysCount = this.req.query["Cigarette Count"];
+    var cigaretteCounterJson = this.req.query["Counter Array"];
+    var cigaretteCounter = [];
+
+    if(cigaretteCounterJson)
+        cigaretteCounter = JSON.parse(cigaretteCounterJson);
+    
+    cigaretteCounter.push({"date": Date.today().setTimeToNow(), "count": yesterdaysCount});
+    
+    this.SetUserAttribute("Counter Array", JSON.stringify(cigaretteCounter));
+}
 
 KickTheSmokingHabit.prototype.DetermineQuitDate = function() {
     var quitDate = Date.today();
