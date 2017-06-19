@@ -95,6 +95,10 @@ KickTheSmokingHabit.prototype.Switchboard = function() {
         switch(this.blockName)
         {
             case "Welcome Message":
+                var firstVisitDate = this.req.query["First Visit Date"];
+
+                if(firstVisitDate == null || firstVisitDate == "")
+                    this.SetUserAttribute("First Visit Date", Date.today());
 
                 break;
             
@@ -103,6 +107,19 @@ KickTheSmokingHabit.prototype.Switchboard = function() {
             case "Quit in Two Months":
             case "Quit on Date":
                 this.DetermineQuitDate();
+                break;
+
+            case "Record Count":
+                var yesterdaysCount = this.req.query["Cigarette Count"];
+                var cigaretteCounterJson = this.req.query["Counter Array"];
+                var cigaretteCounter = [];
+
+                if(cigaretteCounterJson)
+                    cigaretteCounter = JSON.parse(cigaretteCounterJson);
+                
+                cigaretteCounter.push({"date": Date.today().setTimeToNow(), "count": yesterdaysCount});
+                
+                this.SetUserAttribute("Counter Array", JSON.stringify(cigaretteCounter));
                 break;
 
             default:
@@ -115,7 +132,6 @@ KickTheSmokingHabit.prototype.Switchboard = function() {
         this.AddText("No block name specified.");
         this.AddText("Please call it with the {{last visited block name}} attribute");
         this.AddText(util.format("URL: %s", this.req.url));
-        this.SetUserAttribute("Quit Date", "NOT SET");
     }
 
     this.Finish();
