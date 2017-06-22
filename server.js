@@ -74,6 +74,7 @@ function KickTheSmokingHabit (req, res) {
     this.messages = [];
     this.attributes = {};
     this.hasAttributes = false;
+    this.cigaretteCounter = [];
 };
 
 KickTheSmokingHabit.prototype.Finish = function() {
@@ -118,7 +119,6 @@ KickTheSmokingHabit.prototype.Switchboard = function() {
                 break;
 
             case "record count":
-                var cigaretteCount = this.req.query["Cigarette Count"];
                 this.RecordCigaretteCount();
                 break;
 
@@ -185,39 +185,37 @@ KickTheSmokingHabit.prototype.RandomPleasantActivity = function() {
 }
 
 KickTheSmokingHabit.prototype.ChartCigaretteCount = function() {
+    if(cigaretteCounter.length > 0)
+    {
+        var dataPoints = "";
+        for(var i = 0; i < cigaretteCounter.length; i++)
+        {
+            if(dataPoints == "")
+                dataPoints = dataPoints + ","
+            dataPoints = dataPoints + cigaretteCounter[i].count.toString();
+        }
+        var url = util.format("http://chart.googleapis.com/chart?cht=lc&chtt=Cigarettes+Smoked&chs=250x150&chd=t:%s&chds=a&chxt=y", dataPoints);
+        this.AddAttachment("image", url);
+
+        if(this.isDebugMode)
+            this.AddText(util.format("Image URL: %s", url));
+    }
+}
+
+KickTheSmokingHabit.prototype.DeserializeUserAttributes = function() {
     var cigaretteCounterJson = this.req.query["Counter Array"];
-    var cigaretteCounter = [];
 
     if(cigaretteCounterJson)
-    {
-        cigaretteCounter = JSON.parse(cigaretteCounterJson);
-
-        if(cigaretteCounter.length > 0)
-        {
-            var dataPoints = "";
-            for(var i = 0; i < cigaretteCounter.length; i++)
-            {
-                if(dataPoints == "")
-                    dataPoints = dataPoints + ","
-                dataPoints = dataPoints + cigaretteCounter[i].count.toString();
-            }
-            var url = util.format("http://chart.googleapis.com/chart?cht=lc&chtt=Cigarettes+Smoked&chs=250x150&chd=t:%s&chds=a&chxt=y", dataPoints);
-            this.AddAttachment("image", url);
-        }
-    }
+        this.cigaretteCounter = JSON.parse(cigaretteCounterJson);
 }
 
 KickTheSmokingHabit.prototype.RecordCigaretteCount = function() {
     var yesterdaysCount = this.req.query["Cigarette Count"];
-    var cigaretteCounterJson = this.req.query["Counter Array"];
-    var cigaretteCounter = [];
 
-    if(cigaretteCounterJson)
-        cigaretteCounter = JSON.parse(cigaretteCounterJson);
-    
-    cigaretteCounter.push({"date": Date.today().setTimeToNow(), "count": yesterdaysCount});
-    
-    this.SetUserAttribute("Counter Array", JSON.stringify(cigaretteCounter));
+    this.DeserializeUserAttributes();    
+    this.cigaretteCounter.push({"date": Date.today().setTimeToNow(), "count": yesterdaysCount});    
+    this.SetUserAttribute("Counter Array", JSON.stringify(this.cigaretteCounter));
+    this.ChartCigaretteCount();
 }
 
 KickTheSmokingHabit.prototype.DetermineQuitDate = function() {
