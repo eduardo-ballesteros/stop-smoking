@@ -170,7 +170,7 @@ KickTheSmokingHabit.prototype.RandomPleasantActivity = function() {
 
         if(activityList.length > 0)
         {
-            var index = activityList.length * Math.random();
+            var index = Math.floor(activityList.length * Math.random());
             this.AddText('"' + activityList[index] + '"');
         }
         else
