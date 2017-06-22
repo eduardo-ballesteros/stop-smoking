@@ -212,8 +212,6 @@ KickTheSmokingHabit.prototype.DeserializeUserAttributes = function() {
 }
 
 KickTheSmokingHabit.prototype.RecordCigaretteCount = function() {
-    this.AddText(util.format("URL: %s", this.req.url));
-    
     var yesterdaysCount = this.req.query["Cigarette Count"];
 
     this.DeserializeUserAttributes();    
