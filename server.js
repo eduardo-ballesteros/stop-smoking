@@ -200,6 +200,8 @@ KickTheSmokingHabit.prototype.ChartCigaretteCount = function() {
         if(this.isDebugMode)
             this.AddText(util.format("Image URL: %s", url));
     }
+    else
+        this.AddText("No records of your cigarettes.");        
 }
 
 KickTheSmokingHabit.prototype.DeserializeUserAttributes = function() {
@@ -210,6 +212,8 @@ KickTheSmokingHabit.prototype.DeserializeUserAttributes = function() {
 }
 
 KickTheSmokingHabit.prototype.RecordCigaretteCount = function() {
+    this.AddText(util.format("URL: %s", this.req.url));
+    
     var yesterdaysCount = this.req.query["Cigarette Count"];
 
     this.DeserializeUserAttributes();    
