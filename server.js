@@ -70,6 +70,7 @@ function KickTheSmokingHabit (req, res) {
     this.req = req;
     this.res = res;
     this.blockName = req.query["last visited block name"];
+    this.isDebugMode = req.query["debug"] == "yes";
     this.messages = [];
     this.attributes = {};
     this.hasAttributes = false;
@@ -84,17 +85,20 @@ KickTheSmokingHabit.prototype.Finish = function() {
     if(this.messages.length > 0)
         jsonResponse.messages = this.messages;
 
+    //TODO: Calculate Days to Quit if Quit Date is set.
+
     this.res.send(jsonResponse);    
 }
 
 KickTheSmokingHabit.prototype.Switchboard = function() {
-    this.AddText(util.format("URL: %s", this.req.url));
+    if(this.isDebugMode)
+        this.AddText(util.format("URL: %s", this.req.url));
 
     if(this.blockName)
     {
-        switch(this.blockName)
+        switch(this.blockName.toLowerCase())
         {
-            case "Welcome Message":
+            case "welcome message":
                 var firstVisitDate = this.req.query["First Visit Date"];
 
                 if(firstVisitDate == null || firstVisitDate == "")
@@ -102,31 +106,41 @@ KickTheSmokingHabit.prototype.Switchboard = function() {
 
                 break;
 
-            case "Pleasant Activities":
+            case "pleasant activities":
                 this.RecordPleasantActivity();
                 break;
             
-            case "Quit in One Month":
-            case "Quit at End of Month":
-            case "Quit in Two Months":
-            case "Quit on Date":
+            case "quit in one month":
+            case "quit at end of month":
+            case "quit in two months":
+            case "quit on date":
                 this.DetermineQuitDate();
                 break;
 
-            case "Record Count":
+            case "record count":
+                var cigaretteCount = this.req.query["Cigarette Count"];
                 this.RecordCigaretteCount();
                 break;
 
+            case "feeling down":
+                this.RandomPleasantActivity();
+                break;
+
             default:
-                this.AddText(util.format("Sorry, I didn't get this [%s]", this.blockName));
+                this.AddText(util.format("Sorry, I didn't get this block name chat[%s]", this.blockName));
                 break;
         }
     }
     else
     {
-        this.AddText("No block name specified.");
-        this.AddText("Please call it with the {{last visited block name}} attribute");
-        this.AddText(util.format("URL: %s", this.req.url));
+        if(this.isDebugMode)
+        {
+            this.AddText("No block name specified.");
+            this.AddText("Please call it with the {{last visited block name}} attribute");
+            this.AddText(util.format("URL: %s", this.req.url));
+        }
+        else
+            this.AddText("Ooops, something went wrong.");
     }
 
     this.Finish();
@@ -157,7 +171,7 @@ KickTheSmokingHabit.prototype.RandomPleasantActivity = function() {
         if(activityList.length > 0)
         {
             var index = activityList.length * Math.random();
-            this.AddText(activityList[index]);
+            this.AddText('"' + activityList[index] + '"');
         }
         else
         {
@@ -170,6 +184,28 @@ KickTheSmokingHabit.prototype.RandomPleasantActivity = function() {
     }
 }
 
+KickTheSmokingHabit.prototype.ChartCigaretteCount = function() {
+    var cigaretteCounterJson = this.req.query["Counter Array"];
+    var cigaretteCounter = [];
+
+    if(cigaretteCounterJson)
+    {
+        cigaretteCounter = JSON.parse(cigaretteCounterJson);
+
+        if(cigaretteCounter.length > 0)
+        {
+            var dataPoints = "";
+            for(var i = 0; i < cigaretteCounter.length; i++)
+            {
+                if(dataPoints == "")
+                    dataPoints = dataPoints + ","
+                dataPoints = dataPoints + cigaretteCounter[i].count.toString();
+            }
+            var url = util.format("http://chart.googleapis.com/chart?cht=lc&chtt=Cigarettes+Smoked&chs=250x150&chd=t:%s&chds=a&chxt=y", dataPoints);
+            this.AddAttachment("image", url);
+        }
+    }
+}
 
 KickTheSmokingHabit.prototype.RecordCigaretteCount = function() {
     var yesterdaysCount = this.req.query["Cigarette Count"];
@@ -187,18 +223,18 @@ KickTheSmokingHabit.prototype.RecordCigaretteCount = function() {
 KickTheSmokingHabit.prototype.DetermineQuitDate = function() {
     var quitDate = Date.today();
 
-    switch(this.blockName)
+    switch(this.blockName.toLowerCase())
     {
-        case "Quit at End of Month":
+        case "quit at end of month":
             quitDate = quitDate.moveToLastDayOfMonth();
             break;
-        case "Quit in One Month":
+        case "quit in one month":
             quitDate = quitDate.addMonths(1);
             break;
-        case "Quit in Two Months":
+        case "quit in two months":
             quitDate = quitDate.addMonths(2);
             break;
-        case "Quit on Date":
+        case "quit on date":
             quitDate = null;
 
             var userQuitDate = this.req.query["Custom Quit Date"];
@@ -254,7 +290,7 @@ KickTheSmokingHabit.prototype.SetUserAttribute = function(attributeName, value) 
 }
 
 KickTheSmokingHabit.prototype.AddAttachment = function(attachmentType, url) {
-    var attachment = [];
+    var attachment = {};
 
     attachment.push({
         "type": attachmentType,
@@ -263,4 +299,3 @@ KickTheSmokingHabit.prototype.AddAttachment = function(attachmentType, url) {
 
     this.messages.push({ "attachment": attachment });
 }
-
