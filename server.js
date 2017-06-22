@@ -185,14 +185,14 @@ KickTheSmokingHabit.prototype.RandomPleasantActivity = function() {
 }
 
 KickTheSmokingHabit.prototype.ChartCigaretteCount = function() {
-    if(cigaretteCounter.length > 0)
+    if(this.cigaretteCounter.length > 0)
     {
         var dataPoints = "";
-        for(var i = 0; i < cigaretteCounter.length; i++)
+        for(var i = 0; i < this.cigaretteCounter.length; i++)
         {
-            if(dataPoints == "")
+            if(dataPoints != "")
                 dataPoints = dataPoints + ","
-            dataPoints = dataPoints + cigaretteCounter[i].count.toString();
+            dataPoints = dataPoints + this.cigaretteCounter[i].count;
         }
         var url = util.format("http://chart.googleapis.com/chart?cht=lc&chtt=Cigarettes+Smoked&chs=250x150&chd=t:%s&chds=a&chxt=y", dataPoints);
         this.AddAttachment("image", url);
@@ -292,12 +292,10 @@ KickTheSmokingHabit.prototype.SetUserAttribute = function(attributeName, value) 
 }
 
 KickTheSmokingHabit.prototype.AddAttachment = function(attachmentType, url) {
-    var attachment = {};
-
-    attachment.push({
+    var attachment = {
         "type": attachmentType,
         "payload": { "url": url }
-    });
+    };
 
     this.messages.push({ "attachment": attachment });
 }
