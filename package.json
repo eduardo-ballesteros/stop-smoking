@@ -1,22 +1,23 @@
 {
-    "name": "stop-smoking-server",
-    "preferGlobal": true,
-    "version": "0.0.1",
-    "author": "Eduardo Ballesteros",
-    "description": "Server for Facebook chatbot for stop smoking",
-    "license": "MIT",
-    "engines": {
-        "node": ">=6.0"
-    },
-    "scripts": {
-        "start": "node ./server.js"
-    },
-    "dependencies": {
-        "express": "^4.15.3",
-        "datejs":"^1.0.0-rc3"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/eduardo-ballesteros/stop-smoking.git"
-    }
+  "name": "stop-smoking-server",
+  "preferGlobal": true,
+  "version": "0.0.1",
+  "author": "Eduardo Ballesteros",
+  "description": "Server for Facebook chatbot for stop smoking",
+  "license": "MIT",
+  "engines": {
+    "node": ">=6.0"
+  },
+  "scripts": {
+    "start": "node ./server.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.17.2",
+    "datejs": "^1.0.0-rc3",
+    "express": "^4.15.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eduardo-ballesteros/stop-smoking.git"
+  }
 }

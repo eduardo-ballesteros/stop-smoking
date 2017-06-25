@@ -1,10 +1,35 @@
 var express = require('express');
 var datejs = require('datejs');
 var util = require('util');
+var bodyParser = require('body-parser');
+var crypto = require('crypto');
+
 var app = express();
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 app.listen(process.env.PORT || 5000, function() {
     console.log(util.format("Stop Smoking Bot-Server listening on port %s...", process.env.PORT || 5000));
+});
+
+app.post('/post', function(req, res) {
+    var habit = new KickTheSmokingHabit(req, res);
+    var param = req.body["User Data"];
+    habit.addText(util.format("POST: %s", req.body.firstName));
+
+    if(typeof param !== 'undefined' && param)
+        habit.addText(util.format("param was posted and it is: %s", param));
+    else
+        habit.addText("param was not passed");
+
+    var userKey = req.body["chatfuel user id"];
+    if(userKey) {
+        userKey = util.format("facebook-alameda-%s", userKey);
+        habit.addText(util.format("User Key Hash: %s", crypto.createHash('sha1').update(userKey).digest('hex')));
+    }
+
+    habit.finish();
 });
 
 app.get('/', function(req, res) {
@@ -21,28 +46,28 @@ app.get('/echo', function(req, res) {
 
 app.get('/echo2', function(req, res) {
     var habit = new KickTheSmokingHabit(req, res);
-    habit.AddText(util.format("URL: %s", req.url));   
-    habit.Finish();
+    habit.addText(util.format("URL: %s", req.url));   
+    habit.finish();
 });
 
 app.get('/attr', function(req, res) {
     var habit = new KickTheSmokingHabit(req, res);
     
-    habit.AddText(util.format("URL: %s", req.url));   
+    habit.addText(util.format("URL: %s", req.url));   
 
     var attributeName = req.query["Attribute to Set"];
     var attributeValue = req.query["Attribute Value"];
 
-    habit.SetUserAttribute(attributeName, attributeValue);
+    habit.setUserAttribute(attributeName, attributeValue);
 
-    habit.AddText(util.format("Attribute [%s] set to [%s].", attributeName, attributeValue));
+    habit.addText(util.format("Attribute [%s] set to [%s].", attributeName, attributeValue));
 
-    habit.Finish();
+    habit.finish();
 });
 
 app.get('/sb', function(req, res) {
     var habit = new KickTheSmokingHabit(req, res);
-    habit.Switchboard();
+    habit.switchboard();
 });
 
 app.get('/val_qd', function(req, res) {
@@ -75,10 +100,69 @@ function KickTheSmokingHabit (req, res) {
     this.attributes = {};
     this.hasAttributes = false;
     this.cigaretteCounter = [];
+    
+    var userDataJson = req.body["User Data"];
+
+    this.isUserDataAvailable = typeof userDataJson !== 'undefined';
+
+    if(!this.isUserDataAvailable)
+        this.addText(util.format("Block [%s] didn't pass the User Data variable."));
+
+    if(userDataJson) 
+        this.userData = JSON.parse(userDataJson);
+    else
+    {
+        var userKey = req.body["chatfuel user id"];
+        if(typeof userKey === 'undefined')
+            this.addText(util.format("Block [%s] didn't pass the chatfuel user id variable."))
+        else {
+            userKey = util.format("facebook-%s-alameda", userKey);
+
+            this.userData = new UserData();
+            this.userData.firstVisit = Date.today().setTimeToNow();
+            this.userData.userKeyHash = crypto.createHash('sha1').update(userKey).digest('hex');
+        }
+    }
 };
 
-KickTheSmokingHabit.prototype.Finish = function() {
+function UserData()
+{
+    this.userKeyHash;
+    this.firstVisit;
+    this.enrolledOn;
+    this.termsAccepted;
+    this.quitDate;
+    this.contactLaterRequest;
+}
+
+UserData.prototype.daysToQuit = function() {
+    if(this.quitDate) 
+        return (this.quitDate - Date.today())/86400000;
+    
+    return NaN;
+}
+
+UserData.prototype.isQuitDateToday = function() {
+    return this.daysToQuit() = 0;
+}
+
+UserData.prototype.isQuitDateInTheFuture = function() {
+    return this.daysToQuit() > 0;
+}
+
+UserData.prototype.isQuitDateSet = function() {
+    return (Object.prototype.toString.call(this.quitDate) === "[object Date]");
+}
+
+UserData.prototype.isEnrolled = function() {
+    return (Object.prototype.toString.call(this.enrolledOn) === "[object Date]");
+}
+
+KickTheSmokingHabit.prototype.finish = function() {
     var jsonResponse = {};
+
+    if (this.isUserDataAvailable)
+        this.setUserAttribute("User Data", JSON.stringify(this.userData));
 
     if(this.hasAttributes)
         jsonResponse.set_attributes = this.attributes;
@@ -91,9 +175,9 @@ KickTheSmokingHabit.prototype.Finish = function() {
     this.res.send(jsonResponse);    
 }
 
-KickTheSmokingHabit.prototype.Switchboard = function() {
+KickTheSmokingHabit.prototype.switchboard = function() {
     if(this.isDebugMode)
-        this.AddText(util.format("URL: %s", this.req.url));
+        this.addText(util.format("Switchboard URL: %s", this.req.url));
 
     if(this.blockName)
     {
@@ -103,31 +187,31 @@ KickTheSmokingHabit.prototype.Switchboard = function() {
                 var firstVisitDate = this.req.query["First Visit Date"];
 
                 if(firstVisitDate == null || firstVisitDate == "")
-                    this.SetUserAttribute("First Visit Date", Date.today());
+                    this.setUserAttribute("First Visit Date", Date.today());
 
                 break;
 
             case "pleasant activities":
-                this.RecordPleasantActivity();
+                this.recordPleasantActivity();
                 break;
             
             case "quit in one month":
             case "quit at end of month":
             case "quit in two months":
             case "quit on date":
-                this.DetermineQuitDate();
+                this.determineQuitDate();
                 break;
 
             case "record count":
-                this.RecordCigaretteCount();
+                this.recordCigaretteCount();
                 break;
 
             case "feeling down":
-                this.RandomPleasantActivity();
+                this.randomPleasantActivity();
                 break;
 
             default:
-                this.AddText(util.format("Sorry, I didn't get this block name chat[%s]", this.blockName));
+                this.addText(util.format("Sorry, I didn't get this block name chat[%s]", this.blockName));
                 break;
         }
     }
@@ -135,18 +219,23 @@ KickTheSmokingHabit.prototype.Switchboard = function() {
     {
         if(this.isDebugMode)
         {
-            this.AddText("No block name specified.");
-            this.AddText("Please call it with the {{last visited block name}} attribute");
-            this.AddText(util.format("URL: %s", this.req.url));
+            this.addText("No block name specified.");
+            this.addText("Please call it with the {{last visited block name}} attribute");
+            this.addText(util.format("URL: %s", this.req.url));
         }
         else
-            this.AddText("Ooops, something went wrong.");
+        {
+            this.addText("Ooops, something went wrong.");
+
+            if(this.blockName != "User Status")
+                this.addRedirectToBlock("User Status");
+        }
     }
 
-    this.Finish();
+    this.finish();
 };
 
-KickTheSmokingHabit.prototype.RecordPleasantActivity = function() {
+KickTheSmokingHabit.prototype.recordPleasantActivity = function() {
     var pleasantActivity = this.req.query["Pleasant Activity"];
     var activityListJson = this.req.query["Pleasant Activity Array"];
     var activityList = [];
@@ -156,11 +245,11 @@ KickTheSmokingHabit.prototype.RecordPleasantActivity = function() {
     
     activityList.push(pleasantActivity);
 
-    this.SetUserAttribute("Pleasant Activity Array", JSON.stringify(activityList));
-    this.SetUserAttribute("Has Pleasant Activities", "Yes");
+    this.setUserAttribute("Pleasant Activity Array", JSON.stringify(activityList));
+    this.setUserAttribute("Has Pleasant Activities", "Yes");
 }
 
-KickTheSmokingHabit.prototype.RandomPleasantActivity = function() {
+KickTheSmokingHabit.prototype.randomPleasantActivity = function() {
     var activityListJson = this.req.query["Pleasant Activity Array"];
     var activityList = [];
 
@@ -171,21 +260,21 @@ KickTheSmokingHabit.prototype.RandomPleasantActivity = function() {
         if(activityList.length > 0)
         {
             var index = Math.floor(activityList.length * Math.random());
-            this.AddText('"' + activityList[index] + '"');
+            this.addText('"' + activityList[index] + '"');
         }
         else
         {
-            this.AddText("You haven't told me about activities that you enjoy. If you tell me some, I'll remind you of one when you are feeling down.");
+            this.addText("You haven't told me about activities that you enjoy. If you tell me some, I'll remind you of one when you are feeling down.");
         }
     }
     else
     {
-        this.AddText("You haven't told me about activities that you enjoy. If you tell me some, I'll remind you of one when you are feeling down.");
+        this.addText("You haven't told me about activities that you enjoy. If you tell me some, I'll remind you of one when you are feeling down.");
     }
 }
 
-KickTheSmokingHabit.prototype.ChartCigaretteCount = function() {
-    if(this.cigaretteCounter.length > 0)
+KickTheSmokingHabit.prototype.chartCigaretteCount = function() {
+    if(this.cigaretteCounter.length > 1)
     {
         var dataPoints = "";
         for(var i = 0; i < this.cigaretteCounter.length; i++)
@@ -195,32 +284,32 @@ KickTheSmokingHabit.prototype.ChartCigaretteCount = function() {
             dataPoints = dataPoints + this.cigaretteCounter[i].count;
         }
         var url = util.format("http://chart.googleapis.com/chart?cht=lc&chtt=Cigarettes+Smoked&chs=250x150&chd=t:%s&chds=a&chxt=y", dataPoints);
-        this.AddAttachment("image", url);
+        this.addAttachment("image", url);
 
         if(this.isDebugMode)
-            this.AddText(util.format("Image URL: %s", url));
+            this.addText(util.format("Image URL: %s", url));
     }
     else
-        this.AddText("No records of your cigarettes.");        
+        this.addText("Once you tell me how many cigarettes you smoked each day, I'll show you a chart to visualize your smoking.");        
 }
 
-KickTheSmokingHabit.prototype.DeserializeUserAttributes = function() {
+KickTheSmokingHabit.prototype.deserializeUserAttributes = function() {
     var cigaretteCounterJson = this.req.query["Counter Array"];
 
     if(cigaretteCounterJson)
         this.cigaretteCounter = JSON.parse(cigaretteCounterJson);
 }
 
-KickTheSmokingHabit.prototype.RecordCigaretteCount = function() {
+KickTheSmokingHabit.prototype.recordCigaretteCount = function() {
     var yesterdaysCount = this.req.query["Cigarette Count"];
 
-    this.DeserializeUserAttributes();    
+    this.deserializeUserAttributes();    
     this.cigaretteCounter.push({"date": Date.today().setTimeToNow(), "count": yesterdaysCount});    
-    this.SetUserAttribute("Counter Array", JSON.stringify(this.cigaretteCounter));
-    this.ChartCigaretteCount();
+    this.setUserAttribute("Counter Array", JSON.stringify(this.cigaretteCounter));
+    this.chartCigaretteCount();
 }
 
-KickTheSmokingHabit.prototype.DetermineQuitDate = function() {
+KickTheSmokingHabit.prototype.determineQuitDate = function() {
     var quitDate = Date.today();
 
     switch(this.blockName.toLowerCase())
@@ -243,14 +332,14 @@ KickTheSmokingHabit.prototype.DetermineQuitDate = function() {
                 quitDate = Date.parse(userQuitDate);
 
                 if(quitDate == null)
-                    this.AddText(util.format("I don't understand [%s]", userQuitDate))
+                    this.addText(util.format("I don't understand [%s]", userQuitDate))
             }
             else
-                this.AddText(util.format("[Custom Quit Date] was not passed from block [%s].", this.blockName));
+                this.addText(util.format("[Custom Quit Date] was not passed from block [%s].", this.blockName));
 
             break;
         default:
-            this.AddText(util.format("Block [%s] is unknown in DetermineQuitDate", this.blockName));
+            this.addText(util.format("Block [%s] is unknown in DetermineQuitDate", this.blockName));
     }
                 
     if(quitDate != null)
@@ -259,37 +348,37 @@ KickTheSmokingHabit.prototype.DetermineQuitDate = function() {
 
         if(daysFromNow < 0)
         {
-            this.AddText("Your quit date appears to be in the past.");
-            this.SetUserAttribute("Quit Date", "");
-            this.SetUserAttribute("Days to Quit", 0);
+            this.addText("Your quit date appears to be in the past.");
+            this.setUserAttribute("Quit Date", "");
+            this.setUserAttribute("Days to Quit", 0);
         }
         else
         {
-            this.AddText(util.format("Your quit date is in %s days and set to %s.", daysFromNow, quitDate.toString("MMMM d")));                
-            this.SetUserAttribute("Quit Date", quitDate.toString("MMMM d, yyyy"));
-            this.SetUserAttribute("Days to Quit", daysFromNow);            
+            this.addText(util.format("Your quit date is in %s days and set to %s.", daysFromNow, quitDate.toString("MMMM d")));                
+            this.setUserAttribute("Quit Date", quitDate.toString("MMMM d, yyyy"));
+            this.setUserAttribute("Days to Quit", daysFromNow);            
         }
     }    
 }
 
-KickTheSmokingHabit.prototype.AddText = function(text) {
+KickTheSmokingHabit.prototype.addText = function(text) {
     this.messages.push({ "text": text });
 }
 
-KickTheSmokingHabit.prototype.AddLinkToBlock = function(blockName) {
+KickTheSmokingHabit.prototype.addLinkToBlock = function(blockName) {
     this.messages.push({ "text": text });
 }
 
-KickTheSmokingHabit.prototype.AddRedirectToBlock = function(blockName) {
+KickTheSmokingHabit.prototype.addRedirectToBlock = function(blockName) {
     this.messages.push({ "redirect_to_blocks": [ blockName ] });
 }
 
-KickTheSmokingHabit.prototype.SetUserAttribute = function(attributeName, value) {
+KickTheSmokingHabit.prototype.setUserAttribute = function(attributeName, value) {
     this.attributes[attributeName] = value;
     this.hasAttributes = true;
 }
 
-KickTheSmokingHabit.prototype.AddAttachment = function(attachmentType, url) {
+KickTheSmokingHabit.prototype.addAttachment = function(attachmentType, url) {
     var attachment = {
         "type": attachmentType,
         "payload": { "url": url }
