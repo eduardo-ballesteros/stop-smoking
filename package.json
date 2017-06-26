@@ -6,7 +6,7 @@
   "description": "Server for Facebook chatbot for stop smoking",
   "license": "MIT",
   "engines": {
-    "node": ">=6.0"
+    "node": "6.11.0"
   },
   "scripts": {
     "start": "node ./server.js"
