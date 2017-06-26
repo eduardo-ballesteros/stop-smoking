@@ -34,72 +34,37 @@ app.post('/post', function(req, res) {
 
 app.get('/', function(req, res) {
     var jsonResponse = [];
-    jsonResponse.push({ "text": "Hi. " + (Math.random() * 100 + 1).toFixed(0) + " is a lucky number..." });
+    jsonResponse.push({ "text": "Welcome to the Kick The Smoking Habit chatbot." });
     res.send(jsonResponse);
 });
 
-app.get('/echo', function(req, res) {
+app.get('/guide', function(req, res) {
     var jsonResponse = [];
-    jsonResponse.push({ "text": util.format("URL: %s", req.url) });
+    jsonResponse.push({ "text": "Welcome to the Kick The Smoking Habit chatbot." });
     res.send(jsonResponse);
 });
 
-app.get('/echo2', function(req, res) {
-    var habit = new KickTheSmokingHabit(req, res);
-    habit.addText(util.format("URL: %s", req.url));   
-    habit.finish();
+app.post('/', function(req, res) {
+    var jsonResponse = [];
+    jsonResponse.push({ "text": "Welcome to the Kick The Smoking Habit chatbot." });
+    res.send(jsonResponse);
 });
 
-app.get('/attr', function(req, res) {
-    var habit = new KickTheSmokingHabit(req, res);
-    
-    habit.addText(util.format("URL: %s", req.url));   
-
-    var attributeName = req.query["Attribute to Set"];
-    var attributeValue = req.query["Attribute Value"];
-
-    habit.setUserAttribute(attributeName, attributeValue);
-
-    habit.addText(util.format("Attribute [%s] set to [%s].", attributeName, attributeValue));
-
-    habit.finish();
-});
-
-app.get('/sb', function(req, res) {
+app.post('/sb', function(req, res) {
     var habit = new KickTheSmokingHabit(req, res);
     habit.switchboard();
-});
-
-app.get('/val_qd', function(req, res) {
-    var jsonResponse = [];
-    var quitDateParam = req.query["Quit Date"];
-    if(quitDateParam != null && quitDateParam != "")
-    {
-        var quitDate = Date.parse(quitDateParam);
-        if(quitDate == null)
-            jsonResponse.push({ "text": util.format("I can't tell what %s is.", quitDateParam) });
-        else
-        {
-            var daysFromNow = quitDate.getOrdinalNumber() - Date.today().getOrdinalNumber();
-            jsonResponse.push({ "text": util.format("Quit date is set to %s or %s days from now.", quitDate.toString("MMM d"), daysFromNow) });
-        }
-    }
-    else
-    {
-        jsonResponse.push({ "text": "Please enter a date for when you want to quit." });
-    }
-    res.send(jsonResponse);
 });
 
 function KickTheSmokingHabit (req, res) {
     this.req = req;
     this.res = res;
-    this.blockName = req.query["last visited block name"];
-    this.isDebugMode = req.query["debug"] == "yes";
+    this.blockName = req.body["last visited block name"];
+    this.isDebugMode = req.body["debug"] == "yes";
     this.messages = [];
     this.attributes = {};
     this.hasAttributes = false;
     this.cigaretteCounter = [];
+    this.activityList = [];
     
     var userDataJson = req.body["User Data"];
 
@@ -123,6 +88,8 @@ function KickTheSmokingHabit (req, res) {
             this.userData.userKeyHash = crypto.createHash('sha1').update(userKey).digest('hex');
         }
     }
+
+    this.deserializeUserAttributes();    
 };
 
 function UserData()
@@ -161,8 +128,12 @@ UserData.prototype.isEnrolled = function() {
 KickTheSmokingHabit.prototype.finish = function() {
     var jsonResponse = {};
 
-    if (this.isUserDataAvailable)
+    if (this.isUserDataAvailable) {
+        if(this.userData.isQuitDateSet())
+            this.setUserAttribute("Days to Quit", this.userData.daysToQuit());
+        
         this.setUserAttribute("User Data", JSON.stringify(this.userData));
+    }
 
     if(this.hasAttributes)
         jsonResponse.set_attributes = this.attributes;
@@ -184,11 +155,6 @@ KickTheSmokingHabit.prototype.switchboard = function() {
         switch(this.blockName.toLowerCase())
         {
             case "welcome message":
-                var firstVisitDate = this.req.query["First Visit Date"];
-
-                if(firstVisitDate == null || firstVisitDate == "")
-                    this.setUserAttribute("First Visit Date", Date.today());
-
                 break;
 
             case "pleasant activities":
@@ -236,36 +202,21 @@ KickTheSmokingHabit.prototype.switchboard = function() {
 };
 
 KickTheSmokingHabit.prototype.recordPleasantActivity = function() {
-    var pleasantActivity = this.req.query["Pleasant Activity"];
-    var activityListJson = this.req.query["Pleasant Activity Array"];
-    var activityList = [];
-
-    if(activityListJson)
-        activityList = JSON.parse(activityListJson);    
+    var pleasantActivity = this.req.body["Pleasant Activity"];
     
-    activityList.push(pleasantActivity);
+    if(pleasantActivity) {
+        this.activityList.push(pleasantActivity);
 
-    this.setUserAttribute("Pleasant Activity Array", JSON.stringify(activityList));
-    this.setUserAttribute("Has Pleasant Activities", "Yes");
+        this.setUserAttribute("Pleasant Activity Array", JSON.stringify(this.activityList));
+        this.setUserAttribute("Has Pleasant Activities", "Yes");
+    }
 }
 
 KickTheSmokingHabit.prototype.randomPleasantActivity = function() {
-    var activityListJson = this.req.query["Pleasant Activity Array"];
-    var activityList = [];
-
-    if(activityListJson)
+    if(this.activityList.length > 0)
     {
-        activityList = JSON.parse(activityListJson);    
-
-        if(activityList.length > 0)
-        {
-            var index = Math.floor(activityList.length * Math.random());
-            this.addText('"' + activityList[index] + '"');
-        }
-        else
-        {
-            this.addText("You haven't told me about activities that you enjoy. If you tell me some, I'll remind you of one when you are feeling down.");
-        }
+        var index = Math.floor(this.activityList.length * Math.random());
+        this.addText('"' + this.activityList[index] + '"');
     }
     else
     {
@@ -294,16 +245,20 @@ KickTheSmokingHabit.prototype.chartCigaretteCount = function() {
 }
 
 KickTheSmokingHabit.prototype.deserializeUserAttributes = function() {
-    var cigaretteCounterJson = this.req.query["Counter Array"];
+    var cigaretteCounterJson = this.req.body["Counter Array"];
 
     if(cigaretteCounterJson)
         this.cigaretteCounter = JSON.parse(cigaretteCounterJson);
+
+    var activityListJson = this.req.body["Pleasant Activity Array"];
+
+    if(activityListJson)
+        this.activityList = JSON.parse(activityListJson);
 }
 
 KickTheSmokingHabit.prototype.recordCigaretteCount = function() {
-    var yesterdaysCount = this.req.query["Cigarette Count"];
+    var yesterdaysCount = this.req.body["Cigarette Count"];
 
-    this.deserializeUserAttributes();    
     this.cigaretteCounter.push({"date": Date.today().setTimeToNow(), "count": yesterdaysCount});    
     this.setUserAttribute("Counter Array", JSON.stringify(this.cigaretteCounter));
     this.chartCigaretteCount();
@@ -326,7 +281,7 @@ KickTheSmokingHabit.prototype.determineQuitDate = function() {
         case "quit on date":
             quitDate = null;
 
-            var userQuitDate = this.req.query["Custom Quit Date"];
+            var userQuitDate = this.req.body["Custom Quit Date"];
 
             if(userQuitDate) {
                 quitDate = Date.parse(userQuitDate);
@@ -344,19 +299,18 @@ KickTheSmokingHabit.prototype.determineQuitDate = function() {
                 
     if(quitDate != null)
     {
-        var daysFromNow = -(Date.today() - quitDate)/86400000;
+        this.userData.quitDate = quitDate;
+        var daysFromNow = this.userData.daysToQuit();
 
         if(daysFromNow < 0)
         {
             this.addText("Your quit date appears to be in the past.");
             this.setUserAttribute("Quit Date", "");
-            this.setUserAttribute("Days to Quit", 0);
         }
         else
         {
             this.addText(util.format("Your quit date is in %s days and set to %s.", daysFromNow, quitDate.toString("MMMM d")));                
             this.setUserAttribute("Quit Date", quitDate.toString("MMMM d, yyyy"));
-            this.setUserAttribute("Days to Quit", daysFromNow);            
         }
     }    
 }
