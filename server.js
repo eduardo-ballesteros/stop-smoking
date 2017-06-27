@@ -187,7 +187,8 @@ KickTheSmokingHabit.prototype.switchboard = function() {
                 break;
 
             default:
-                this.addText(util.format("Sorry, I didn't get this block name chat[%s]", this.blockName));
+                if (this.isDebugMode)
+                    this.addText(util.format("Sorry, I didn't get this block name chat [%s]", this.blockName));
                 break;
         }
     }
