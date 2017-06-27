@@ -151,7 +151,7 @@ KickTheSmokingHabit.prototype.finish = function() {
 
 KickTheSmokingHabit.prototype.switchboard = function() {
     if(this.isDebugMode)
-        this.addText(util.format("Switchboard URL: %s", this.req.url));
+        this.addText(util.format("Switchboard URL: %s, block name: %s", this.req.url, this.blockName));
 
     if(this.blockName)
     {
