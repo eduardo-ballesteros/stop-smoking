@@ -106,30 +106,37 @@ function UserData()
         
         return NaN;
     }
+}
 
-    UserData.prototype.isQuitDateToday = function() {
-        return this.daysToQuit() = 0;
-    }
+KickTheSmokingHabit.prototype.daysToQuit = function() {
+    if(this.userData.quitDate) 
+        return (this.userData.quitDate - Date.today())/86400000;
+    
+    return NaN;
+}
 
-    UserData.prototype.isQuitDateInTheFuture = function() {
-        return this.daysToQuit() > 0;
-    }
+KickTheSmokingHabit.prototype.isQuitDateToday = function() {
+    return this.daysToQuit() = 0;
+}
 
-    UserData.prototype.isQuitDateSet = function() {
-        return (Object.prototype.toString.call(this.quitDate) === "[object Date]");
-    }
+KickTheSmokingHabit.prototype.isQuitDateInTheFuture = function() {
+    return this.daysToQuit() > 0;
+}
 
-    UserData.prototype.isEnrolled = function() {
-        return (Object.prototype.toString.call(this.enrolledOn) === "[object Date]");
-    }
+KickTheSmokingHabit.prototype.isQuitDateSet = function() {
+    return (Object.prototype.toString.call(this.userData.quitDate) === "[object Date]");
+}
+
+KickTheSmokingHabit.prototype.isEnrolled = function() {
+    return (Object.prototype.toString.call(this.userData.enrolledOn) === "[object Date]");
 }
 
 KickTheSmokingHabit.prototype.finish = function() {
     var jsonResponse = {};
 
     if (this.isUserDataAvailable) {
-        if(this.userData.isQuitDateSet())
-            this.setUserAttribute("Days to Quit", this.userData.daysToQuit());
+        if(this.isQuitDateSet())
+            this.setUserAttribute("Days to Quit", this.daysToQuit());
         
         this.setUserAttribute("User Data", JSON.stringify(this.userData));
     }
@@ -315,7 +322,7 @@ KickTheSmokingHabit.prototype.determineQuitDate = function() {
     if(quitDate != null)
     {
         this.userData.quitDate = quitDate;
-        var daysFromNow = this.userData.daysToQuit();
+        var daysFromNow = this.daysToQuit();
 
         if(daysFromNow < 0)
         {
