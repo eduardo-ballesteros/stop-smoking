@@ -331,7 +331,6 @@ KickTheSmokingHabit.prototype.determineQuitDate = function() {
         }
         else
         {
-            this.addText(util.format("Your quit date is in %s days and set to %s.", daysFromNow, quitDate.toString("MMMM d")));                
             this.setUserAttribute("Quit Date", quitDate.toString("MMMM d, yyyy"));
         }
     }    
