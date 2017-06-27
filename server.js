@@ -99,29 +99,29 @@ function UserData()
     this.termsAccepted;
     this.quitDate;
     this.contactLaterRequest;
-}
 
-UserData.prototype.daysToQuit = function() {
-    if(this.quitDate) 
-        return (this.quitDate - Date.today())/86400000;
-    
-    return NaN;
-}
+    UserData.prototype.daysToQuit = function() {
+        if(this.quitDate) 
+            return (this.quitDate - Date.today())/86400000;
+        
+        return NaN;
+    }
 
-UserData.prototype.isQuitDateToday = function() {
-    return this.daysToQuit() = 0;
-}
+    UserData.prototype.isQuitDateToday = function() {
+        return this.daysToQuit() = 0;
+    }
 
-UserData.prototype.isQuitDateInTheFuture = function() {
-    return this.daysToQuit() > 0;
-}
+    UserData.prototype.isQuitDateInTheFuture = function() {
+        return this.daysToQuit() > 0;
+    }
 
-UserData.prototype.isQuitDateSet = function() {
-    return (Object.prototype.toString.call(this.quitDate) === "[object Date]");
-}
+    UserData.prototype.isQuitDateSet = function() {
+        return (Object.prototype.toString.call(this.quitDate) === "[object Date]");
+    }
 
-UserData.prototype.isEnrolled = function() {
-    return (Object.prototype.toString.call(this.enrolledOn) === "[object Date]");
+    UserData.prototype.isEnrolled = function() {
+        return (Object.prototype.toString.call(this.enrolledOn) === "[object Date]");
+    }
 }
 
 KickTheSmokingHabit.prototype.finish = function() {
