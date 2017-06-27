@@ -65,6 +65,7 @@ function KickTheSmokingHabit (req, res) {
     this.hasAttributes = false;
     this.cigaretteCounter = [];
     this.activityList = [];
+    this.userData = new UserData();
     
     var userDataJson = req.body["User Data"];
 
@@ -75,15 +76,13 @@ function KickTheSmokingHabit (req, res) {
 
     if(userDataJson) 
         this.userData = JSON.parse(userDataJson);
-    else
-    {
+    else {
         var userKey = req.body["chatfuel user id"];
         if(typeof userKey === 'undefined')
             this.addText(util.format("Block [%s] didn't pass the chatfuel user id variable."))
         else {
             userKey = util.format("facebook-%s-alameda", userKey);
 
-            this.userData = new UserData();
             this.userData.firstVisit = Date.today().setTimeToNow();
             this.userData.userKeyHash = crypto.createHash('sha1').update(userKey).digest('hex');
         }
@@ -143,7 +142,11 @@ KickTheSmokingHabit.prototype.finish = function() {
 
     //TODO: Calculate Days to Quit if Quit Date is set.
 
+    if(this.isDebugMode)
+        this.addText(util.format("Final JSON: %s", JSON.stringify(jsonResponse)));
+        
     this.res.send(jsonResponse);    
+
 }
 
 KickTheSmokingHabit.prototype.switchboard = function() {
@@ -258,6 +261,18 @@ KickTheSmokingHabit.prototype.deserializeUserAttributes = function() {
 
 KickTheSmokingHabit.prototype.recordCigaretteCount = function() {
     var yesterdaysCount = this.req.body["Cigarette Count"];
+
+    if(yesterdaysCount)
+        switch(yesterdaysCount.toLowerCase())
+        {
+            case " ":
+            case "none":
+            case "zero":
+            case "nothing":
+            case "zip":
+                yesterdaysCount = 0;
+                break;
+        }
 
     this.cigaretteCounter.push({"date": Date.today().setTimeToNow(), "count": yesterdaysCount});    
     this.setUserAttribute("Counter Array", JSON.stringify(this.cigaretteCounter));
