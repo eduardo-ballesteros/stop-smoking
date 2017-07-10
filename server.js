@@ -64,7 +64,10 @@ function KickTheSmokingHabit (req, res) {
     this.attributes = {};
     this.hasAttributes = false;
     this.cigaretteCounter = [];
+    this.moodRecords = [];
+    this.thoughtRecords = [];
     this.activityList = [];
+    this.thoughtList = [];
     this.userData = new UserData();
     
     var userDataJson = req.body["User Data"];
@@ -74,8 +77,9 @@ function KickTheSmokingHabit (req, res) {
     if(!this.isUserDataAvailable)
         this.addText(util.format("Block [%s] didn't pass the User Data variable."));
 
-    if(userDataJson) 
-        this.userData = JSON.parse(userDataJson);
+    if(userDataJson) {
+        this.userData = JSON.parse(userDataJson, reviver);
+    }
     else {
         var userKey = req.body["chatfuel user id"];
         if(typeof userKey === 'undefined')
@@ -91,6 +95,16 @@ function KickTheSmokingHabit (req, res) {
     this.deserializeUserAttributes();    
 };
 
+const dateFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+function reviver(key, value) {
+    if (typeof value === "string" && dateFormat.test(value)) {
+        return new Date(value);
+    }
+    
+    return value;
+}
+
 function UserData()
 {
     this.userKeyHash;
@@ -99,13 +113,7 @@ function UserData()
     this.termsAccepted;
     this.quitDate;
     this.contactLaterRequest;
-
-    UserData.prototype.daysToQuit = function() {
-        if(this.quitDate) 
-            return (this.quitDate - Date.today())/86400000;
-        
-        return NaN;
-    }
+    this.lastVisit;
 }
 
 KickTheSmokingHabit.prototype.daysToQuit = function() {
@@ -135,6 +143,8 @@ KickTheSmokingHabit.prototype.finish = function() {
     var jsonResponse = {};
 
     if (this.isUserDataAvailable) {
+        this.userData.lastVisit = Date.today().setTimeToNow();
+
         if(this.isQuitDateSet())
             this.setUserAttribute("Days to Quit", this.daysToQuit());
         
@@ -147,13 +157,10 @@ KickTheSmokingHabit.prototype.finish = function() {
     if(this.messages.length > 0)
         jsonResponse.messages = this.messages;
 
-    //TODO: Calculate Days to Quit if Quit Date is set.
-
     if(this.isDebugMode)
         this.addText(util.format("Final JSON: %s", JSON.stringify(jsonResponse)));
         
-    this.res.send(jsonResponse);    
-
+    this.res.send(jsonResponse);
 }
 
 KickTheSmokingHabit.prototype.switchboard = function() {
@@ -167,10 +174,6 @@ KickTheSmokingHabit.prototype.switchboard = function() {
             case "welcome message":
                 break;
 
-            case "pleasant activities":
-                this.recordPleasantActivity();
-                break;
-            
             case "quit in one month":
             case "quit at end of month":
             case "quit in two months":
@@ -178,8 +181,16 @@ KickTheSmokingHabit.prototype.switchboard = function() {
                 this.determineQuitDate();
                 break;
 
-            case "record count":
+            case "cigarette record":
                 this.recordCigaretteCount();
+                break;
+
+            case "mood record":
+                this.recordPleasantActivity();
+                break;
+
+            case "thought record":
+                this.recordHelpfulThought();
                 break;
 
             case "feeling down":
@@ -235,7 +246,70 @@ KickTheSmokingHabit.prototype.randomPleasantActivity = function() {
     }
 }
 
+KickTheSmokingHabit.prototype.recordHelpfulThought = function() {
+    var helpfulThought = this.req.body["Helpful Thought"];
+    
+    if(helpfulThought) {
+        this.thoughtList.push(helpfulThought);
+
+        this.setUserAttribute("Helpful Thought Array", JSON.stringify(this.thoughtList));
+        this.setUserAttribute("Has Helpful Thoughts", "Yes");
+    }
+}
+
+KickTheSmokingHabit.prototype.randomPleasantActivity = function() {
+    if(this.thoughtList.length > 0)
+    {
+        var index = Math.floor(this.thoughtList.length * Math.random());
+        this.addText('"' + this.thoughtList[index] + '"');
+    }
+    else
+    {
+        this.addText("You haven't told me about some of your helpful thoughts. If you tell me some, I'll remind you of one when your thoughs are more negative.");
+    }
+}
+
 KickTheSmokingHabit.prototype.chartCigaretteCount = function() {
+    if(this.cigaretteCounter.length > 1)
+    {
+        var dataPoints = "";
+        for(var i = 0; i < this.cigaretteCounter.length; i++)
+        {
+            if(dataPoints != "")
+                dataPoints = dataPoints + ","
+            dataPoints = dataPoints + this.cigaretteCounter[i].count;
+        }
+        var url = util.format("http://chart.googleapis.com/chart?cht=lc&chtt=Cigarettes+Smoked&chs=250x150&chd=t:%s&chds=a&chxt=y", dataPoints);
+        this.addAttachment("image", url);
+
+        if(this.isDebugMode)
+            this.addText(util.format("Image URL: %s", url));
+    }
+    else
+        this.addText("Once you tell me how many cigarettes you smoked each day, I'll show you a chart to visualize your smoking.");        
+}
+
+KickTheSmokingHabit.prototype.chartMood = function() {
+    if(this.cigaretteCounter.length > 1)
+    {
+        var dataPoints = "";
+        for(var i = 0; i < this.cigaretteCounter.length; i++)
+        {
+            if(dataPoints != "")
+                dataPoints = dataPoints + ","
+            dataPoints = dataPoints + this.cigaretteCounter[i].count;
+        }
+        var url = util.format("http://chart.googleapis.com/chart?cht=lc&chtt=Cigarettes+Smoked&chs=250x150&chd=t:%s&chds=a&chxt=y", dataPoints);
+        this.addAttachment("image", url);
+
+        if(this.isDebugMode)
+            this.addText(util.format("Image URL: %s", url));
+    }
+    else
+        this.addText("Once you tell me how many cigarettes you smoked each day, I'll show you a chart to visualize your smoking.");        
+}
+
+KickTheSmokingHabit.prototype.chartThoughts = function() {
     if(this.cigaretteCounter.length > 1)
     {
         var dataPoints = "";
@@ -286,6 +360,15 @@ KickTheSmokingHabit.prototype.recordCigaretteCount = function() {
     this.setUserAttribute("Counter Array", JSON.stringify(this.cigaretteCounter));
     this.chartCigaretteCount();
 }
+
+KickTheSmokingHabit.prototype.recordMood = function() {
+    var moodRating = parseInt(this.req.body["Mood Rating"]);
+
+    this.mood.push({"date": Date.today().setTimeToNow(), "count": yesterdaysCount});    
+    this.setUserAttribute("Counter Array", JSON.stringify(this.cigaretteCounter));
+    this.chartCigaretteCount();
+}
+
 
 KickTheSmokingHabit.prototype.determineQuitDate = function() {
     var quitDate = Date.today();
