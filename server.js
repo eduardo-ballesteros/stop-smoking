@@ -75,7 +75,7 @@ function KickTheSmokingHabit (req, res) {
     this.isUserDataAvailable = typeof userDataJson !== 'undefined';
 
     if(!this.isUserDataAvailable)
-        this.addText(util.format("Block [%s] didn't pass the User Data variable."));
+        this.addText(util.format("Block [%s] didn't pass the User Data variable.", this.blockName));
 
     if(userDataJson) {
         this.userData = JSON.parse(userDataJson, reviver);
@@ -181,16 +181,28 @@ KickTheSmokingHabit.prototype.switchboard = function() {
                 this.determineQuitDate();
                 break;
 
+            case "just smoked":
+                this.recordOneCigarette();
+                break;
+
             case "cigarette record":
                 this.recordCigaretteCount();
                 break;
 
-            case "mood record":
+            case "pleasant activities":
                 this.recordPleasantActivity();
                 break;
 
-            case "thought record":
+            case "mood record":
+                this.recordMood();
+                break;
+
+            case "helpful thoughts":
                 this.recordHelpfulThought();
+                break;
+
+            case "thought record":
+                this.recordThought();
                 break;
 
             case "feeling down":
@@ -290,55 +302,84 @@ KickTheSmokingHabit.prototype.chartCigaretteCount = function() {
 }
 
 KickTheSmokingHabit.prototype.chartMood = function() {
-    if(this.cigaretteCounter.length > 1)
+    if(this.moodRecords.length > 1)
     {
         var dataPoints = "";
-        for(var i = 0; i < this.cigaretteCounter.length; i++)
+        for(var i = 0; i < this.moodRecords.length; i++)
         {
             if(dataPoints != "")
                 dataPoints = dataPoints + ","
-            dataPoints = dataPoints + this.cigaretteCounter[i].count;
+            dataPoints = dataPoints + this.moodRecords[i].value;
         }
-        var url = util.format("http://chart.googleapis.com/chart?cht=lc&chtt=Cigarettes+Smoked&chs=250x150&chd=t:%s&chds=a&chxt=y", dataPoints);
+        var url = util.format("http://chart.googleapis.com/chart?cht=lc&chtt=My+Mood&chs=250x150&chd=t:%s&chds=a&chxt=y", dataPoints);
         this.addAttachment("image", url);
-
-        if(this.isDebugMode)
-            this.addText(util.format("Image URL: %s", url));
     }
     else
-        this.addText("Once you tell me how many cigarettes you smoked each day, I'll show you a chart to visualize your smoking.");        
+        this.addText("Once you tell me a few times, I'll provide you with a chart to visualize your mood.");        
 }
 
 KickTheSmokingHabit.prototype.chartThoughts = function() {
-    if(this.cigaretteCounter.length > 1)
+    if(this.thoughtRecords.length > 1)
     {
         var dataPoints = "";
-        for(var i = 0; i < this.cigaretteCounter.length; i++)
+        for(var i = 0; i < this.thoughtRecords.length; i++)
         {
             if(dataPoints != "")
                 dataPoints = dataPoints + ","
-            dataPoints = dataPoints + this.cigaretteCounter[i].count;
+            dataPoints = dataPoints + this.thoughtRecords[i].value;
         }
-        var url = util.format("http://chart.googleapis.com/chart?cht=lc&chtt=Cigarettes+Smoked&chs=250x150&chd=t:%s&chds=a&chxt=y", dataPoints);
+        var url = util.format("http://chart.googleapis.com/chart?cht=lc&chtt=My+Thoughts&chs=250x150&chd=t:%s&chds=a&chxt=y", dataPoints);
         this.addAttachment("image", url);
-
-        if(this.isDebugMode)
-            this.addText(util.format("Image URL: %s", url));
     }
     else
-        this.addText("Once you tell me how many cigarettes you smoked each day, I'll show you a chart to visualize your smoking.");        
+        this.addText("Once you tell me a few times, I'll provide you with a chart to visualize your thoughts.");        
 }
 
 KickTheSmokingHabit.prototype.deserializeUserAttributes = function() {
     var cigaretteCounterJson = this.req.body["Counter Array"];
 
     if(cigaretteCounterJson)
-        this.cigaretteCounter = JSON.parse(cigaretteCounterJson);
+        this.cigaretteCounter = JSON.parse(cigaretteCounterJson, reviver);
 
     var activityListJson = this.req.body["Pleasant Activity Array"];
 
     if(activityListJson)
         this.activityList = JSON.parse(activityListJson);
+
+    var moodRecordsJson = this.req.body["Mood Records"];
+
+    if(moodRecordsJson)
+        this.moodRecords = JSON.parse(moodRecordsJson, reviver);
+
+    var thoughtListJson = this.req.body["Helpful Thought Array"];
+
+    if(thoughtListJson)
+        this.thoughtList = JSON.parse(thoughtListJson);     
+    
+    var thoughtRecordsJson = this.req.body["Thought Records"];
+
+    if(thoughtRecordsJson)
+        this.thoughtRecords = JSON.parse(thoughtRecordsJson, reviver);                
+}
+
+KickTheSmokingHabit.prototype.recordOneCigarette = function() {
+    var record;
+
+    for(var index = 0; index < this.cigaretteCounter.length; index++)
+    {
+        record = this.cigaretteCounter[index];
+        if(Date.equals(Date.today(), record.date))
+            break;
+        record = null;
+    }
+
+    if(record != null)
+        record.count += 1;
+    else
+        this.cigaretteCounter.push({"date": Date.today(), "count": 1});    
+
+    this.setUserAttribute("Counter Array", JSON.stringify(this.cigaretteCounter));
+    this.chartCigaretteCount();
 }
 
 KickTheSmokingHabit.prototype.recordCigaretteCount = function() {
@@ -356,7 +397,7 @@ KickTheSmokingHabit.prototype.recordCigaretteCount = function() {
                 break;
         }
 
-    this.cigaretteCounter.push({"date": Date.today().setTimeToNow(), "count": yesterdaysCount});    
+    this.cigaretteCounter.push({"date": Date.today(), "count": yesterdaysCount});    
     this.setUserAttribute("Counter Array", JSON.stringify(this.cigaretteCounter));
     this.chartCigaretteCount();
 }
@@ -364,11 +405,18 @@ KickTheSmokingHabit.prototype.recordCigaretteCount = function() {
 KickTheSmokingHabit.prototype.recordMood = function() {
     var moodRating = parseInt(this.req.body["Mood Rating"]);
 
-    this.mood.push({"date": Date.today().setTimeToNow(), "count": yesterdaysCount});    
-    this.setUserAttribute("Counter Array", JSON.stringify(this.cigaretteCounter));
-    this.chartCigaretteCount();
+    this.moodRecords.push({"date": Date.today(), "value": moodRating});    
+    this.setUserAttribute("Mood Records", JSON.stringify(this.moodRecords));
+    this.chartMood();
 }
 
+KickTheSmokingHabit.prototype.recordThought = function() {
+    var thoughtsRating = parseInt(this.req.body["Thoughts Rating"]);
+
+    this.thoughtRecords.push({"date": Date.today(), "value": thoughtsRating});    
+    this.setUserAttribute("Thought Records", JSON.stringify(this.thoughtRecords));
+    this.chartThoughts();
+}
 
 KickTheSmokingHabit.prototype.determineQuitDate = function() {
     var quitDate = Date.today();
